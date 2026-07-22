@@ -937,6 +937,19 @@ class MooncakeKVManager(CommonKVManager):
     ) -> Tuple[bool, bool]:
         skip_kv = False
         skip_state = False
+
+        # CP replicates the full per-token state (e.g. DSA index-K) on every CP
+        # rank rather than sharding it like the main KV, so only rank 0 needs to
+        # send it (unless the state is layer-split across CP). This applies to any
+        # MLA backend with CP-replicated state, hybrid or not, so it must run
+        # before the non-hybrid early return below.
+        if (
+            self.attn_cp_size > 1
+            and self.attn_cp_rank != 0
+            and not self.server_args.enable_dsa_cache_layer_split
+        ):
+            skip_state = True
+
         if not self.is_hybrid_mla_backend:
             return skip_kv, skip_state
 
@@ -947,13 +960,6 @@ class MooncakeKVManager(CommonKVManager):
             if sub_rank != 0:
                 skip_kv = True
                 skip_state = True
-
-        if (
-            self.attn_cp_size > 1
-            and self.attn_cp_rank != 0
-            and not self.server_args.enable_dsa_cache_layer_split
-        ):
-            skip_state = True
 
         return skip_kv, skip_state
 
