@@ -52,6 +52,10 @@ def _run(rank: int, world: int, port: int):
         initialize_model_parallel,
     )
     from sglang.srt.mem_cache.memory_pool import DSATokenToKVPool
+    from sglang.srt.runtime_context import publish
+    from sglang.srt.server_args import ServerArgs
+
+    publish(ServerArgs(model_path="dummy", tp_size=world), role="test")
 
     init_distributed_environment(
         world_size=world,
@@ -60,7 +64,7 @@ def _run(rank: int, world: int, port: int):
         distributed_init_method=f"tcp://127.0.0.1:{port}",
         backend="nccl",
     )
-    initialize_model_parallel(tensor_model_parallel_size=world)
+    initialize_model_parallel()
 
     device = f"cuda:{rank}"
     pool = DSATokenToKVPool(
